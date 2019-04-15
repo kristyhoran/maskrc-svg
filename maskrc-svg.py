@@ -16,7 +16,8 @@ parser.add_argument('--aln', metavar='FASTA', required=True, help='multiFASTA al
 parser.add_argument('--out', metavar='OUTFILE', default='maskrc.aln', help='output file for masked alignment (default="maskrc.aln")')
 parser.add_argument('--symbol', metavar='CHAR', default='?', help='symbol to use for masking (default="?")')
 parser.add_argument('--regions', metavar='FILE', help='output recombinant regions to file')
-parser.add_argument('--svg', metavar='FILE', help='draw SVG output of recombinant regions and save as specified file')
+parser.add_argument('--svg', metavar='FILE', help='draw SVG output of recombinant regions and save as specified file'),
+parser.add_argument('--svgsingle', action='store_true', help = 'draw a single SVG for each isolate in input, with isolate label as filename'),
 parser.add_argument('--svgsize', metavar='WIDExHIGH', default='800x600', help='specify width and height of SVG in pixels (default="800x600")')
 parser.add_argument('--svgorder', metavar='FILE', help='specify file containing list of taxa (1 per line) in desired order')
 parser.add_argument('--svgcolour', metavar='COLOUR', default='black', help='specify colour of recombination regions in HEX format (default=black)')
@@ -165,6 +166,7 @@ if args.regions:
 				csvwriter.writerow([k,x,y,z])
 
 # Draw SVG
+
 svgsize = args.svgsize.split('x',1)
 width = int(svgsize[0])
 height = int(svgsize[1])
@@ -178,58 +180,72 @@ main_colour = 'black'
 ancestral_colour = '#A9A9A9'
 interval = 500000		# Tick interval in bp
 
-dwg = svgwrite.Drawing(args.svg)
+# dwg = svgwrite.Drawing(args.svg)
 
-def rect(x,p,w,colour):		# Draw regions
+def rect(x,p,w,colour, dwg):		# Draw regions
 	dwg.add(dwg.rect(insert=((x*s)+5, (p*h)+5), size=(w, h*0.8), fill=colour))
 	if args.consensus:
 		dwg.add(dwg.rect(insert=((x*s)+5, 5), size=(w, h*0.8), fill=main_colour))
 
-def label(n,p):			# Sequence ID labels
+def label(n,p,dwg):			# Sequence ID labels
 	dwg.add(dwg.text(n, insert=((seqlen*s)+15, (((p+1)*h)-(0.2*h))+5), fill=main_colour, style=font))
 
-def ticks(q):			# Draw tick marks
+def ticks(q,dwg):			# Draw tick marks
 	count = interval
 	while count < seqlen:
 		dwg.add(dwg.line((count*s,((q)*h)), (count*s,((q)*h)-3), stroke=main_colour))
 		dwg.add(dwg.text((count/1000000.0), insert=((count*s)-6, ((q)*h)+13), fill=main_colour, style=font))
 		count = count + interval
 
-def box(width,h):		# Box with 5px margin
+def box(width,h,dwg):		# Box with 5px margin
 	dwg.add(dwg.line((0,0), ((width+10),0), stroke=main_colour))
 	dwg.add(dwg.line(((width+10),0), ((width+10),((p+1)*h)), stroke=main_colour))
 	dwg.add(dwg.line(((width+10),((p+1)*h)), (0,((p+1)*h)), stroke=main_colour))
 	dwg.add(dwg.line((0,((p+1)*h)), (0,0), stroke=main_colour))
 
+def positions(b,s):
+	
+	x = int(b[0])
+	y = int(b[1])
+	z = b[2]
+	w = (y-x)*s
+	return(x,y,z,w)
+
 # Draw recombinant regions and labels
-if args.svg:
+if args.svg or args.svgsingle:
 	msg('Drawing SVG to {} ...'.format(args.svg))
 	if args.consensus:
 		p = 1
 		dwg.add(dwg.text('Consensus', insert=((seqlen*s)+15, (0.8*h)+5), fill=main_colour, style=font))
 	else:
 		p = 0
+	if args.svg:
+		dwg = svgwrite.Drawing(args.svg)
 	for seq in leafLIST:
+		if args.svgsingle:
+			dwg = svgwrite.Drawing(f"{seq}.svg")
 		v = d.get(seq, None)
 		if v:
 			for b in v:
-				x = int(b[0])
-				y = int(b[1])
-				z = b[2]
-				w = (y-x)*s
+				x,y,z,w = positions(b,s)
 				if w < 1:
 					w = 1
 				if z == 'extant':
-					rect(x,p,w,colour)		# regions
+					rect(x,p,w,colour, dwg)		# regions
 				elif z == 'ancestral':
-					rect(x,p,w,ancestral_colour)
-		label(seq,p)			# labels
-		p = p+1
-	# Draw bounding box
-	box(width,h)
-	# Add tick marks
-	ticks(p+1)
-	dwg.save()
+					rect(x,p,w,ancestral_colour, dwg)
+		label(seq,p, dwg)			# labels
+		if args.svgsingle:
+			p = 0
+			dwg.save()
+		else:
+			p = p+1
+	if args.svg:
+		# Draw bounding box
+		box(width,h, dwg)
+		# Add tick marks
+		ticks(p+1, dwg)
+		dwg.save()
 
 # Exit
 msg('Done.')
