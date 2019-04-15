@@ -32,6 +32,7 @@ optional arguments:
   --symbol CHAR        symbol to use for masking (default="?")
   --regions FILE       output recombinant regions to file
   --svg FILE           draw SVG output of recombinant regions and save as specified file
+  --svgsingle          draw a single SVG for each isolate in input, with isolate label as filename
   --svgsize WIDExHIGH  specify width and height of SVG in pixels (default="800x600")
   --svgorder FILE      specify file containing list of taxa (1 per line) in desired order
   --svgcolour COLOUR   specify colour of recombination regions in HEX format (default=black)
